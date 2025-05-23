@@ -48,7 +48,8 @@ local function getWeatherString()
     local active = {}
     for name, emoji in pairs(weatherEmojis) do
         local frame = list:FindFirstChild(name)
-        if frame and frame.Visible then
+        local icon = frame and frame:FindFirstChild("Icon")  -- or whatever part changes visibly
+        if icon and icon.Transparency < 1 then
             table.insert(active, emoji)
         end
     end

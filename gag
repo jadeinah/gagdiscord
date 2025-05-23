@@ -1,0 +1,141 @@
+-- 🦟 Setup
+local player = game:GetService("Players").LocalPlayer
+local httpRequest = (http and http.request) or (syn and syn.request) or request
+local HttpService = game:GetService("HttpService")
+local webhookUrl = "https://discord.com/api/webhooks/1375210803652853760/R_Qb-JLGrggosKikHD1qHG4aeEikzXRjCQz3ABgUOhLfi7Z70JnMR-1rNtVKyXa6hwB8" -- replace this
+
+-- 🌦️ Weather emoji map
+local weatherEmojis = {
+    ["BloodMoon"] = "🌕",
+    ["Disco"] = "  ",
+    ["Frost"] = "❄️",
+    ["MeteorShower"] = "☄️",
+    ["Night"] = "🌙",
+    ["Rain"] = "🌧️",
+    ["Thunderstorm"] = "⛈️"
+}
+
+-- 🥚 Egg emoji map
+local eggEmojis = {
+    ["Common Egg"] = "<:Common_egg:1375196226349170769>",
+    ["Uncommon Egg"] = "<:Uncommon_egg_no_back:1375196244636602438>",
+    ["Rare Egg"] = "<:Rare_egg:1375196266887250082>",
+    ["Legendary Egg"] = "<:Legendary_egg_no_back:1375196298285682861>",
+    ["Mythical Egg"] = "<:MythicalEgg2:1375196319714377902>",
+    ["Bug Egg"] = "<:Bugeggimage:1375196339620544574>"
+}
+
+local gearItemEmojis = {
+    ["Watering Can"] = "<:Watering_Can:1375204441539743816>",
+    ["Lightning Rod"] = "<:Lightning_Rod:1375204439127883776>",
+    ["Advanced Sprinkler"] = "<:Advanced_Sprinkler:1375204436749848616>",
+    ["Godly Sprinkler"] = "<:Godly_Sprinkler:1375204433968763112>",
+    ["Master Sprinkler"] = "<:Master_Sprinkler:1375204430982418433>"
+}
+
+
+
+-- 🌱 Seed item emoji map (custom)
+local seedItemEmojis = {
+    ["Beanstalk"] = "<:BeanstalkIcon:1375203745390002297>",
+    ["Cacao"] = "<:CacaoIcon:1375203742613372988>",
+    ["Pepper"] = "<:PepperCropsPic:1375203740164030605>",
+    ["Mushroom"] = "<:MushroomCropsPic:1375203738062557334>",
+    ["Grape"] = "<:Grapwes:1375203735386722364>",
+    ["Carrot"] = "<:Carrottransparent:1375203733134377101>"
+}
+
+-- 🌦️ Get active weather emojis
+local function getWeatherString()
+    local list = player.PlayerGui:WaitForChild("Bottom_UI").BottomFrame.Holder.List
+    local active = {}
+    for name, emoji in pairs(weatherEmojis) do
+        local frame = list:FindFirstChild(name)
+        if frame and frame.Visible then
+            table.insert(active, emoji)
+        end
+    end
+    return #active > 0 and table.concat(active, "") or "☀️"
+end
+
+-- 🥚 Get active egg emojis
+local function getEggString()
+    local folder = workspace:WaitForChild("NPCS"):WaitForChild("Pet Stand"):WaitForChild("EggLocations")
+    local active = {}
+    for _, model in ipairs(folder:GetChildren()) do
+        local emoji = eggEmojis[model.Name]
+        local part = model:FindFirstChildWhichIsA("BasePart", true)
+        if emoji and part and part.Transparency < 1 and model:IsDescendantOf(workspace) then
+            table.insert(active, emoji)
+        end
+    end
+    return #active > 0 and table.concat(active, " ") or "❌ No eggs"
+end
+
+-- 🛒 Get gear/seed stock emojis + name + xStock
+local function getShopString(frame, emojiMap)
+    local active = {}
+    for name, emoji in pairs(emojiMap) do
+        local itemFrame = frame:FindFirstChild(name)
+        local label = itemFrame and itemFrame:FindFirstChild("Main_Frame") and itemFrame.Main_Frame:FindFirstChild("Stock_Text")
+        if label and not label.Text:lower():find("x0") and label.Text:lower() ~= "no stock" then
+            table.insert(active, string.format("%s %s (`%s`)", emoji, name, label.Text))
+        end
+    end
+    return #active > 0 and table.concat(active, "\n") or "❌ No stock"
+end
+
+-- ⟳ Last known state for change detection
+local lastState = ""
+
+-- 📤 Send to Discord
+local function sendCombinedUpdate(weather, eggs, gear, seeds)
+    local mention = ""
+    if eggs:find("Bug Egg") or gear:find("Master Sprinkler") or gear:find("Godly Sprinkler") or gear:find("Lightning Rod")
+        or seeds:find("Beanstalk") or seeds:find("Mushroom") or seeds:find("Pepper") or seeds:find("Cacao")
+        or weather:find("⛈️") or weather:find("🌕") then
+        mention = "<@&1374800055114010634>"  -- this will now be outside the embed
+    end
+
+    local embed = {
+        title = "📦 Auto Stock Update",
+        description = "**Weather:** " .. weather ..
+                     "\n**Eggs:**\n" .. eggs ..
+                     "\n**Gear:**\n" .. gear ..
+                     "\n**Seeds:**\n" .. seeds,
+        color = 0x87CEEB,
+        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    }
+
+    local payload = HttpService:JSONEncode({
+        content = mention,  -- 👈 this makes the mention outside the embed
+        embeds = { embed }
+    })
+
+    httpRequest({
+        Url = webhookUrl,
+        Method = "POST",
+        Headers = { ["Content-Type"] = "application/json" },
+        Body = payload
+    })
+end
+
+
+-- ⟳ Auto check every 3 seconds, no spam
+local gearFrame = player.PlayerGui:WaitForChild("Gear_Shop").Frame.ScrollingFrame
+local seedFrame = player.PlayerGui:WaitForChild("Seed_Shop").Frame.ScrollingFrame
+
+while true do
+    local weather = getWeatherString()
+    local eggs = getEggString()
+    local gear = getShopString(gearFrame, gearItemEmojis)
+    local seeds = getShopString(seedFrame, seedItemEmojis)
+
+    local combined = weather .. "|" .. eggs .. "|" .. gear .. "|" .. seeds
+    if combined ~= lastState then
+        sendCombinedUpdate(weather, eggs, gear, seeds)
+        lastState = combined
+    end
+
+    task.wait(3)
+end

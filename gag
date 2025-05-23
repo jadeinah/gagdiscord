@@ -2,7 +2,7 @@
 local player = game:GetService("Players").LocalPlayer
 local httpRequest = (http and http.request) or (syn and syn.request) or request
 local HttpService = game:GetService("HttpService")
-local webhookUrl = "https://discord.com/api/webhooks/1375210803652853760/R_Qb-JLGrggosKikHD1qHG4aeEikzXRjCQz3ABgUOhLfi7Z70JnMR-1rNtVKyXa6hwB8" -- replace this
+local webhookUrl = "https://discord.com/api/webhooks/1375210803652853760/R_Qb-JLGrggosKikHD1qHG4aeEikzXRjCQz3ABgUOhLfi7Z70JnMR-1rNtVKyXa6hwB8"
 
 -- 🌦️ Weather emoji map
 local weatherEmojis = {
@@ -33,9 +33,6 @@ local gearItemEmojis = {
     ["Master Sprinkler"] = "<:Master_Sprinkler:1375204430982418433>"
 }
 
-
-
--- 🌱 Seed item emoji map (custom)
 local seedItemEmojis = {
     ["Beanstalk"] = "<:BeanstalkIcon:1375203745390002297>",
     ["Cacao"] = "<:CacaoIcon:1375203742613372988>",
@@ -55,7 +52,7 @@ local function getWeatherString()
             table.insert(active, emoji)
         end
     end
-    return #active > 0 and table.concat(active, "") or "☀️"
+    return #active > 0 and table.concat(active, "") or "☀️ CLEAR"
 end
 
 -- 🥚 Get active egg emojis
@@ -90,11 +87,26 @@ local lastState = ""
 
 -- 📤 Send to Discord
 local function sendCombinedUpdate(weather, eggs, gear, seeds)
+    local bugEggEmoji = eggEmojis["Bug Egg"]
+    local triggers = {
+        {token = bugEggEmoji, label = "Bug Egg"},
+        {token = gearItemEmojis["Master Sprinkler"], label = "Master Sprinkler"},
+        {token = gearItemEmojis["Godly Sprinkler"], label = "Godly Sprinkler"},
+        {token = gearItemEmojis["Lightning Rod"], label = "Lightning Rod"},
+        {token = seedItemEmojis["Beanstalk"], label = "Beanstalk"},
+        {token = seedItemEmojis["Mushroom"], label = "Mushroom"},
+        {token = seedItemEmojis["Pepper"], label = "Pepper"},
+        {token = seedItemEmojis["Cacao"], label = "Cacao"},
+        {token = "⛈️", label = "Thunderstorm"},
+        {token = "🌕", label = "BloodMoon"}
+    }
+
     local mention = ""
-    if eggs:find("Bug Egg") or gear:find("Master Sprinkler") or gear:find("Godly Sprinkler") or gear:find("Lightning Rod")
-        or seeds:find("Beanstalk") or seeds:find("Mushroom") or seeds:find("Pepper") or seeds:find("Cacao")
-        or weather:find("⛈️") or weather:find("🌕") then
-        mention = "<@&1374800055114010634>"  -- this will now be outside the embed
+    for _, trigger in ipairs(triggers) do
+        if eggs:find(trigger.token) or gear:find(trigger.token) or seeds:find(trigger.token) or weather:find(trigger.token) then
+            mention = "@everyone MGA ADIK MAY: " .. trigger.label
+            break
+        end
     end
 
     local embed = {
@@ -108,7 +120,7 @@ local function sendCombinedUpdate(weather, eggs, gear, seeds)
     }
 
     local payload = HttpService:JSONEncode({
-        content = mention,  -- 👈 this makes the mention outside the embed
+        content = mention,
         embeds = { embed }
     })
 
@@ -119,7 +131,6 @@ local function sendCombinedUpdate(weather, eggs, gear, seeds)
         Body = payload
     })
 end
-
 
 -- ⟳ Auto check every 3 seconds, no spam
 local gearFrame = player.PlayerGui:WaitForChild("Gear_Shop").Frame.ScrollingFrame
